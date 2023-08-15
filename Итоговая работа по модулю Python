@@ -1,0 +1,111 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy import stats
+from sklearn.model_selection import train_test_split
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.metrics import accuracy_score
+
+Задание 1 
+Загрузка датафрейма
+
+df = pd.read_csv('HR.csv')
+df.head()
+
+Задание 2
+Рассчет основных статистических метрик для переменных
+
+# Всё кроме моды отображается функцией describe
+df.describe()
+
+# Мода для каждого столбца
+df.mode()
+
+Задание 3
+Рассчитайте и визуализируйте корреляционную матрицу для количественных переменных. Определите две самые скоррелированные и две наименее скоррелированные переменные
+
+corr_matrix = df.iloc[:, :5].corr()
+corr_matrix
+
+# ЯРассмотрим абсолютные значения коэффициентов корреляции
+sns.heatmap(corr_matrix.abs())
+
+columned_corr = corr_matrix.abs().unstack()
+sorted_corr = columned_corr[columned_corr != 1].sort_values()
+print('Две самые скоррелированные переменные:', sorted_corr[-1:])
+print('Две наименее скоррелированные переменные:', sorted_corr[:1])
+
+Задание 4
+Рассчитайте сколько сотрудников работает в каждом департаменте
+
+df.department.value_counts()
+
+Задание 5
+Показать распределение сотрудников по зарплатам. 
+
+sns.histplot(df.salary)
+
+Задание 6 Показать распределение сотрудников по зарплатам в каждом департаменте по отдельности
+
+df['salary'] = pd.Categorical(df.salary, ['low', 'medium', 'high'])
+salary_sorted = df.sort_values('salary')
+
+fig, axs = plt.subplots(2, 5, figsize=(20, 10))
+
+for i, dept in enumerate(df.department.unique()):
+    x, i = [0, i] if i < 5 else [1, i - 5]
+    sns.histplot(salary_sorted[salary_sorted.department == dept].salary, ax=axs[x, i]).set_title(dept)
+
+Задание 7 Проверить гипотезу, что сотрудники с высоким окладом проводят на работе больше времени, чем сотрудники с низким окладом
+
+low_salary = df[df.salary == 'low'].average_montly_hours
+high_salary = df[df.salary == 'high'].average_montly_hours
+
+H0 = 'Вероятно сотрудники с высоким окладом проводят на работе столько же времени сколько сотрудники с низким окладом'
+H1 = 'Сотрудники с высоким окладом проводят на работе больше(меньше) времени, чем сотрудники с низким окладом'
+
+significance = 0.05
+
+print(f'''Среднее кол-во часов на работе в месяц:
+Сотрудники с низким окладом: {low_salary.mean()}
+Сотрудники с высоким окладом: {high_salary.mean()}
+''')
+
+t, pvalue = stats.ttest_ind(low_salary, high_salary)
+
+if pvalue < significance:
+    print(H1)
+else:
+    print(H0)
+print('pvalue =', pvalue)
+
+sns.histplot(low_salary, label='Низкий оклад')
+plt.axvline(low_salary.mean(), color='b', ls='--', lw=2)
+
+sns.histplot(high_salary, color='pink', label='Высокий оклад')
+plt.axvline(high_salary.mean(), color='r', ls='--', lw=2)
+
+plt.title(H0)
+plt.legend()
+plt.show()
+
+Задание 8 Рассчитать следующие показатели среди уволившихся и не уволившихся сотрудников (по отдельности)
+
+# Среднее значение для столбца 'promotion_last_5years' в этом случае как раз отображает долю повышенных сотрудников
+df.groupby('left')[['satisfaction_level', 'number_project', 'promotion_last_5years']].mean()
+
+Задание 9 Разделить данные на тестовую и обучающую выборки. Построить модель LDA, предсказывающую уволился ли сотрудник на основе имеющихся факторов (кроме department и salary). Оценить качество модели на тестовой выборке
+
+X = df.drop(['left', 'department', 'salary'], axis=1)
+y = df.left
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25)
+
+lda = LinearDiscriminantAnalysis()
+
+lda.fit(X_train, y_train)
+
+lda.predict(X_test)
+
+# @title
+accuracy_score(y_test, lda.predict(X_test))
